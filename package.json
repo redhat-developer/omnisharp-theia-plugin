@@ -1,0 +1,50 @@
+{
+  "name": "omnisharp-theia-plugin",
+  "publisher": "theia",
+  "keywords": [
+    "theia-plugin"
+  ],
+  "version": "0.0.1",
+  "license": "EPL-2.0",
+  "files": [
+    "src"
+  ],
+  "devDependencies": {
+    "@theia/plugin": "latest",
+    "lerna": "^3.8.1",
+    "@theia/plugin-packager": "latest",
+    "rimraf": "2.6.2",
+    "typescript-formatter": "7.2.2",
+    "typescript": "2.9.2"
+  },
+  "scripts": {
+    "prepare": "yarn run clean && yarn run build",
+    "clean": "rimraf lib",
+    "postinstall": "node ./scripts/download-omnisharp-roslyn.js",
+    "format-code": "tsfmt -r",
+    "watch": "tsc -watch",
+    "compile": "tsc",
+    "build": "yarn run format-code && yarn run compile && theia:plugin pack"
+  },
+  "engines": {
+    "theiaPlugin": "latest"
+  },
+  "theiaPlugin": {
+    "backend": "lib/main.js"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "csharp",
+        "aliases": [
+          "C#",
+          "c#"
+        ],
+        "extensions": [
+          "cs", "csx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  }
+}
