@@ -27,7 +27,8 @@
     "build": "yarn run format-code && yarn run compile && theia:plugin pack"
   },
   "engines": {
-    "theiaPlugin": "latest"
+    "theiaPlugin": "latest",
+    "cheRuntimeContainer": "vsvydenko/csharp:test"
   },
   "theiaPlugin": {
     "backend": "lib/main.js"

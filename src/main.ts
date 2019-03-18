@@ -52,10 +52,7 @@ async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel) {
 
     let projects = new Set();
     for (let resource of projectFiles) {
-        let folder = theia.workspace.getWorkspaceFolder(resource);
-        if (folder) {
-            projects.add(folder as theia.WorkspaceFolder);
-        }
+        projects.add(resource as theia.Uri);
     }
 
     for (let project of projects) {
@@ -63,14 +60,16 @@ async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel) {
     }
 }
 
-function restoreProject(folder: theia.WorkspaceFolder, outputChannel: theia.OutputChannel) {
+function restoreProject(project: theia.Uri, outputChannel: theia.OutputChannel) {
+    const path: string = project.path;
+    if (!path.endsWith('.csproj') && !path.endsWith('project.json')) {
+        return;
+    }
+
     let cmd = 'dotnet';
-    let args = ['restore'];
+    let args = ['restore', project.path];
 
-    let workspaceFolder = folder as theia.WorkspaceFolder;
-    let directory = workspaceFolder.uri.path;
-
-    let dotnet = cp.spawn(cmd, args, { cwd: directory, env: process.env });
+    let dotnet = cp.spawn(cmd, args, { env: process.env });
 
     function handleData(stream: NodeJS.ReadableStream | null) {
         if (!stream) {
