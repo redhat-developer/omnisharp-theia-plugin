@@ -28,7 +28,7 @@
   },
   "engines": {
     "theiaPlugin": "latest",
-    "cheRuntimeContainer": "vsvydenko/csharp:test"
+    "cheRuntimeContainer": "eclipse/che-remote-plugin-dotnet-2.2.105:next"
   },
   "theiaPlugin": {
     "backend": "lib/main.js"
