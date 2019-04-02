@@ -27,7 +27,7 @@ const filename = 'omnisharp-linux-x64.tar.gz';
 const downloadPath = path.join(packagePath, downloadDir);
 const archivePath = path.join(downloadPath, filename);
 
-function downloadXMLServer() {
+function downloadServer() {
     return new Promise((resolve, reject) => {
         if (fs.existsSync(archivePath)) {
             resolve();
@@ -89,7 +89,7 @@ function removeArchive(archivePath) {
     fs.unlinkSync(archivePath);
 }
 
-downloadXMLServer().then(() => {
+downloadServer().then(() => {
     decompressArchive(archivePath, downloadPath)
 }).
 catch(error => {
