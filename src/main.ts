@@ -20,17 +20,14 @@ import * as path from 'path';
 
 export async function start(context: theia.PluginContext) {
     const CSHARP_LS_ID = 'csharp';
-    const RUN_PATH = path.resolve(__dirname, '..', 'server', 'omnisharp', 'OmniSharp.exe');
-    const command = 'mono';
-    //To use as a local Theia plug-in
-    // const command = path.resolve(__dirname, '..', 'server', 'bin', 'mono');
+    const command = path.resolve(__dirname, '..', 'server', 'run');
 
     const csharpLanguageServerInfo: theia.LanguageServerInfo = {
         id: CSHARP_LS_ID,
         name: 'C#',
         command: command,
         globPatterns: ['**/*.cs', '**/*.csx', '**/*.csproj'],
-        args: [RUN_PATH, '-lsp']
+        args: ['-lsp']
     }
 
     const outputChannel: theia.OutputChannel = theia.window.createOutputChannel('dotnet-log');
