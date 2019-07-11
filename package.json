@@ -33,6 +33,9 @@
   "theiaPlugin": {
     "backend": "lib/main.js"
   },
+  "activationEvents": [
+    "*"
+  ],
   "contributes": {
     "languages": [
       {
@@ -42,7 +45,8 @@
           "c#"
         ],
         "extensions": [
-          "cs", "csx"
+          "cs",
+          "csx"
         ],
         "configuration": "./language-configuration.json"
       }
