@@ -19,27 +19,32 @@ import * as cp from 'child_process';
 import * as path from 'path';
 
 export async function start(context: theia.PluginContext) {
+    const outputChannel: theia.OutputChannel = theia.window.createOutputChannel('dotnet-log');
+    outputChannel.clear();
+    outputChannel.show();
+
     const CSHARP_LS_ID = 'csharp';
     const command = path.resolve(__dirname, '..', 'server', 'run');
+
+    await dotnetRestoreAllProjects(outputChannel);
 
     const csharpLanguageServerInfo: theia.LanguageServerInfo = {
         id: CSHARP_LS_ID,
         name: 'C#',
         command: command,
         globPatterns: ['**/*.cs', '**/*.csx', '**/*.csproj'],
-        args: ['-lsp']
+        args: ['-lsp',
+            'DotNet:enablePackageRestore=false',
+            'MsBuild:LoadProjectsOnDemand=true',
+            'RoslynExtensionsOptions:EnableAnalyzersSupport=true',
+            'FormattingOptions:EnableEditorConfigSupport=true',
+            '--loglevel', 'information']
     }
-
-    const outputChannel: theia.OutputChannel = theia.window.createOutputChannel('dotnet-log');
-    outputChannel.clear();
-    outputChannel.show();
-
-    dotnetRestoreAllProjects(outputChannel);
 
     context.subscriptions.push(theia.languageServer.registerLanguageServerProvider(csharpLanguageServerInfo));
 }
 
-async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel) {
+async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel): Promise<void> {
     if (!theia.workspace.workspaceFolders) {
         return;
     }
@@ -56,43 +61,46 @@ async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel) {
     }
 
     for (let project of projects) {
-        restoreProject(project, outputChannel);
+        await restoreProject(project, outputChannel);
     }
 }
 
-function restoreProject(project: theia.Uri, outputChannel: theia.OutputChannel) {
-    const path: string = project.path;
-    if (!path.endsWith('.csproj') && !path.endsWith('project.json')) {
-        return;
-    }
-
-    let cmd = 'dotnet';
-    let args = ['restore', project.path];
-
-    let dotnet = cp.spawn(cmd, args, { env: process.env });
-
-    function handleData(stream: NodeJS.ReadableStream | null) {
-        if (!stream) {
+async function restoreProject(project: theia.Uri, outputChannel: theia.OutputChannel): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        const path: string = project.path;
+        if (!path.endsWith('.csproj') && !path.endsWith('project.json')) {
             return;
         }
-        stream.on('data', chunk => {
-            outputChannel.appendLine(chunk.toString());
+
+        let cmd = 'dotnet';
+        let args = ['restore', project.path];
+
+        let dotnet = cp.spawn(cmd, args, { env: process.env });
+
+        function handleData(stream: NodeJS.ReadableStream | null) {
+            if (!stream) {
+                return;
+            }
+            stream.on('data', chunk => {
+                outputChannel.appendLine(chunk.toString());
+            });
+
+            stream.on('err', err => {
+                outputChannel.appendLine(`ERROR: ${err}`);
+            });
+        }
+
+        handleData(dotnet.stdout);
+        handleData(dotnet.stderr);
+
+        dotnet.on('close', (code, signal) => {
+            outputChannel.appendLine(`Done: ${code}`);
+            resolve();
         });
 
-        stream.on('err', err => {
+        dotnet.on('error', err => {
             outputChannel.appendLine(`ERROR: ${err}`);
+            reject(err);
         });
-    }
-
-    handleData(dotnet.stdout);
-    handleData(dotnet.stderr);
-
-    dotnet.on('close', (code, signal) => {
-        outputChannel.appendLine(`Done: ${code}`);
-        outputChannel.show();
-    });
-
-    dotnet.on('error', err => {
-        outputChannel.appendLine(`ERROR: ${err}`);
     });
 }
