@@ -1,6 +1,6 @@
 dist/
 node_modules/
-server/
+.omnisharp/
 *.theia
 *.jar
 lib/

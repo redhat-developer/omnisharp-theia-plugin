@@ -17,6 +17,11 @@
     "typescript-formatter": "7.2.2",
     "typescript": "2.9.2"
   },
+  "dependencies": {
+    "remove-bom-buffer": "3.0.0",
+    "strip-bom": "3.0.0",
+    "rxjs": "6.4.0"
+  },
   "scripts": {
     "prepare": "yarn run clean && yarn run build",
     "clean": "rimraf lib",

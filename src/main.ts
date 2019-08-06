@@ -15,92 +15,44 @@
  * The language server is based in https://github.com/OmniSharp/omnisharp-roslyn. 
  */
 import * as theia from '@theia/plugin';
-import * as cp from 'child_process';
-import * as path from 'path';
+import { EventStream } from './EventStream';
+import * as OmniSharp from './omnisharp/extension';
+import { InformationMessageObserver } from './observers/InformationMessageObserver';
+import { OmnisharpChannelObserver } from './observers/OmnisharpChannelObserver';
+import { OmnisharpLoggerObserver } from './observers/OmnisharpLoggerObserver';
 
 export async function start(context: theia.PluginContext) {
-    const outputChannel: theia.OutputChannel = theia.window.createOutputChannel('dotnet-log');
-    outputChannel.clear();
-    outputChannel.show();
+    const pluginPath = removeLastDirectoryPartOf(__dirname);
 
-    const CSHARP_LS_ID = 'csharp';
-    const command = path.resolve(__dirname, '..', 'server', 'run');
+    const eventStream = new EventStream();
 
-    await dotnetRestoreAllProjects(outputChannel);
+    let omnisharpChannel = theia.window.createOutputChannel('OmniSharp Log');
+    let omnisharpLogObserver = new OmnisharpLoggerObserver(omnisharpChannel);
+    let omnisharpChannelObserver = new OmnisharpChannelObserver(omnisharpChannel);
+    eventStream.subscribe(omnisharpLogObserver.post);
+    eventStream.subscribe(omnisharpChannelObserver.post);
 
-    const csharpLanguageServerInfo: theia.LanguageServerInfo = {
-        id: CSHARP_LS_ID,
-        name: 'C#',
-        command: command,
-        globPatterns: ['**/*.cs', '**/*.csx', '**/*.csproj'],
-        args: ['-lsp',
-            'DotNet:enablePackageRestore=false',
-            'MsBuild:LoadProjectsOnDemand=true',
-            'RoslynExtensionsOptions:EnableAnalyzersSupport=true',
-            'FormattingOptions:EnableEditorConfigSupport=true',
-            '--loglevel', 'information']
+    let informationMessageObserver = new InformationMessageObserver();
+    eventStream.subscribe(informationMessageObserver.post);
+
+    let langServicePromise = OmniSharp.activate(context, eventStream, pluginPath);
+
+    return {
+        initializationFinished: async () => {
+            let langService = await langServicePromise;
+            await langService.server.waitForEmptyEventQueue();
+        },
+        getAdvisor: async () => {
+            let langService = await langServicePromise;
+            return langService.advisor;
+        },
+        eventStream
+    };
+
+    function removeLastDirectoryPartOf(path: string) {
+        var the_arr = path.split('/');
+        the_arr.pop();
+        return (the_arr.join('/'));
     }
 
-    context.subscriptions.push(theia.languageServer.registerLanguageServerProvider(csharpLanguageServerInfo));
-}
-
-async function dotnetRestoreAllProjects(outputChannel: theia.OutputChannel): Promise<void> {
-    if (!theia.workspace.workspaceFolders) {
-        return;
-    }
-
-    const projectFiles = await theia.workspace.findFiles(
-        /*include*/ '{**/*.csproj,**/project.json}',
-        /*exclude*/ '{**/node_modules/**,**/.git/**,**/bower_components/**}',
-        /*maxResults*/ 250);
-
-
-    let projects = new Set();
-    for (let resource of projectFiles) {
-        projects.add(resource as theia.Uri);
-    }
-
-    for (let project of projects) {
-        await restoreProject(project, outputChannel);
-    }
-}
-
-async function restoreProject(project: theia.Uri, outputChannel: theia.OutputChannel): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        const path: string = project.path;
-        if (!path.endsWith('.csproj') && !path.endsWith('project.json')) {
-            return;
-        }
-
-        let cmd = 'dotnet';
-        let args = ['restore', project.path];
-
-        let dotnet = cp.spawn(cmd, args, { env: process.env });
-
-        function handleData(stream: NodeJS.ReadableStream | null) {
-            if (!stream) {
-                return;
-            }
-            stream.on('data', chunk => {
-                outputChannel.appendLine(chunk.toString());
-            });
-
-            stream.on('err', err => {
-                outputChannel.appendLine(`ERROR: ${err}`);
-            });
-        }
-
-        handleData(dotnet.stdout);
-        handleData(dotnet.stderr);
-
-        dotnet.on('close', (code, signal) => {
-            outputChannel.appendLine(`Done: ${code}`);
-            resolve();
-        });
-
-        dotnet.on('error', err => {
-            outputChannel.appendLine(`ERROR: ${err}`);
-            reject(err);
-        });
-    });
 }
