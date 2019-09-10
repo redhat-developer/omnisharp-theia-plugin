@@ -19,6 +19,8 @@ import { OmniSharpServer } from '../omnisharp/server';
 import * as serverUtils from '../omnisharp/utils';
 import { findLaunchTargets } from '../omnisharp/launcher';
 import * as cp from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as protocol from '../omnisharp/protocol';
 import * as theia from '@theia/plugin';
 import { ShowOmniSharpChannel, CommandDotNetRestoreStart, CommandDotNetRestoreProgress, CommandDotNetRestoreSucceeded, CommandDotNetRestoreFailed } from '../omnisharp/loggingEvents';
@@ -30,7 +32,8 @@ export default function registerCommands(server: OmniSharpServer, eventStream: E
     disposable.add(theia.commands.registerCommand({ id: 'o.restart' }, () => restartOmniSharp(server)));
     disposable.add(theia.commands.registerCommand({ id: 'o.pickProjectAndStart' }, async () => pickProjectAndStart(server)));
     disposable.add(theia.commands.registerCommand({ id: 'o.showOutput' }, () => eventStream.post(new ShowOmniSharpChannel())));
-    disposable.add(theia.commands.registerCommand({ id: 'dotnet.restore.all' }, async () => dotnetRestoreAllProjects(server, eventStream)));
+    disposable.add(theia.commands.registerCommand({ id: 'dotnet.restore.project', label: '.NET: Restore Project' }, async () => pickProjectAndDotnetRestore(server, eventStream)));
+    disposable.add(theia.commands.registerCommand({ id: 'dotnet.restore.all', label: '.NET: Restore All Projects' }, async () => dotnetRestoreAllProjects(server, eventStream)));
 
     return new CompositeDisposable(disposable);
 }
@@ -44,7 +47,7 @@ function restartOmniSharp(server: OmniSharpServer) {
     }
 }
 
-async function pickProjectAndStart(server: OmniSharpServer): Promise<void> {
+export async function pickProjectAndStart(server: OmniSharpServer): Promise<void> {
     return findLaunchTargets().then(targets => {
 
         let currentPath = server.getSolutionPathOrFolder();
@@ -73,6 +76,48 @@ async function dotnetRestoreAllProjects(server: OmniSharpServer, eventStream: Ev
     for (let descriptor of descriptors) {
         await dotnetRestore(descriptor.Directory, eventStream);
     }
+}
+
+async function pickProjectAndDotnetRestore(server: OmniSharpServer, eventStream: EventStream): Promise<void> {
+    let descriptors = await getProjectDescriptors(server);
+    eventStream.post(new CommandDotNetRestoreStart());
+    let commands = await Promise.all(projectsToCommands(descriptors, eventStream));
+    let command = await theia.window.showQuickPick(commands, {});
+    if (command) {
+        return command.execute();
+    }
+}
+
+interface Command {
+    label: string;
+    description: string;
+    execute(): Promise<void>;
+}
+
+function projectsToCommands(projects: protocol.ProjectDescriptor[], eventStream: EventStream): Promise<Command>[] {
+    return projects.map(async project => {
+        let projectDirectory = project.Directory;
+
+        return new Promise<Command>((resolve, reject) => {
+            fs.lstat(projectDirectory, (err, stats) => {
+                if (err) {
+                    return reject(err);
+                }
+
+                if (stats.isFile()) {
+                    projectDirectory = path.dirname(projectDirectory);
+                }
+
+                resolve({
+                    label: `dotnet restore - (${project.Name || path.basename(project.Directory)})`,
+                    description: projectDirectory,
+                    async execute() {
+                        return dotnetRestore(projectDirectory, eventStream);
+                    }
+                });
+            });
+        });
+    });
 }
 
 async function getProjectDescriptors(server: OmniSharpServer): Promise<protocol.ProjectDescriptor[]> {

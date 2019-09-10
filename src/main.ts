@@ -20,6 +20,8 @@ import * as OmniSharp from './omnisharp/extension';
 import { InformationMessageObserver } from './observers/InformationMessageObserver';
 import { OmnisharpChannelObserver } from './observers/OmnisharpChannelObserver';
 import { OmnisharpLoggerObserver } from './observers/OmnisharpLoggerObserver';
+import { ProjectStatusBarObserver } from './observers/ProjectStatusBarObserver';
+import { StatusBarItemAdapter } from './statusBarItemAdapter';
 
 export async function start(context: theia.PluginContext) {
     const pluginPath = removeLastDirectoryPartOf(__dirname);
@@ -34,6 +36,10 @@ export async function start(context: theia.PluginContext) {
 
     let informationMessageObserver = new InformationMessageObserver();
     eventStream.subscribe(informationMessageObserver.post);
+
+    let projectStatusBar = new StatusBarItemAdapter(theia.window.createStatusBarItem(theia.StatusBarAlignment.Left));
+    let projectStatusBarObserver = new ProjectStatusBarObserver(projectStatusBar);
+    eventStream.subscribe(projectStatusBarObserver.post);
 
     let langServicePromise = OmniSharp.activate(context, eventStream, pluginPath);
 

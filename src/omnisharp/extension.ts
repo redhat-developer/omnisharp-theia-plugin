@@ -32,12 +32,13 @@ import RenameProvider from '../features/renameProvider';
 import SignatureHelpProvider from '../features/signatureHelpProvider';
 import WorkspaceSymbolProvider from '../features/workspaceSymbolProvider';
 import forwardChanges from '../features/changeForwarding';
-import registerCommands from '../features/commands';
+import registerCommands, { pickProjectAndStart } from '../features/commands';
 import { EventStream } from '../EventStream';
 import CompositeDisposable from '../CompositeDisposable';
 import Disposable from '../Disposable';
 import trackVirtualDocuments from '../features/virtualDocumentTracker';
 import { StructureProvider } from '../features/structureProvider';
+import { findLaunchTargets } from './launcher';
 
 export interface ActivationResult {
     readonly server: OmniSharpServer;
@@ -101,7 +102,41 @@ export async function activate(context: theia.PluginContext, eventStream: EventS
 
     context.subscriptions.push(disposables);
 
+    listenWorkspaceChanges(context, server);
+
     return new Promise<ActivationResult>(resolve =>
-        server.onServerStart(() =>
-            resolve({ server, advisor })));
+        server.onServerStart(() => {
+            resolve({ server, advisor })
+        }));
+}
+
+function listenWorkspaceChanges(context: theia.PluginContext, server: OmniSharpServer) {
+    context.subscriptions.push(
+        theia.workspace.onDidChangeWorkspaceFolders((event: theia.WorkspaceFoldersChangeEvent) => {
+            findLaunchTargets().then(targets => {
+                //start Omnisharp LS for a new project
+                if (targets.length > 0 && !server.isRunning()) {
+                    server.autoStart();
+                    return;
+                }
+
+                let currentPath = server.getSolutionPathOrFolder();
+                if (currentPath) {
+                    //last target was removed - stop Omnisharp LS
+                    if (targets.length === 0 && server.isRunning()) {
+                        server.stop();
+                        return;
+                    }
+                    for (let target of targets) {
+                        if (target.target === currentPath) {
+                            return;
+                        }
+                    }
+                }
+
+                //Pick up new project
+                pickProjectAndStart(server);
+            });
+        })
+    );
 }
