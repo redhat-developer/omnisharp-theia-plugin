@@ -21,7 +21,7 @@ const mkdirp = require('mkdirp');
 
 // @ts-ignore
 const packagePath = path.join(__dirname, '..');
-let downloadUrl = 'https://github.com/OmniSharp/omnisharp-roslyn/releases/download/v1.32.20/omnisharp-linux-x64.tar.gz';
+let downloadUrl = 'https://github.com/OmniSharp/omnisharp-roslyn/releases/download/v1.34.11/omnisharp-linux-x64.tar.gz';
 const downloadDir = '.omnisharp';
 const filename = 'omnisharp-linux-x64.tar.gz';
 const downloadPath = path.join(packagePath, downloadDir);
