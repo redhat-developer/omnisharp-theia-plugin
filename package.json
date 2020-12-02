@@ -1,6 +1,6 @@
 {
   "name": "omnisharp-theia-plugin",
-  "publisher": "theia",
+  "publisher": "redhat-developer",
   "keywords": [
     "theia-plugin"
   ],
@@ -12,7 +12,7 @@
   "categories": [
     "Programming Languages"
   ],
-  "version": "0.0.1",
+  "version": "0.0.8",
   "license": "EPL-2.0",
   "files": [
     "src"
